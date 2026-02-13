@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sayan's Vehicle Detector + Zoom</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: #050505; color: white; margin: 0; 
+            display: flex; flex-direction: column; align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* Splash Screen */
+        #intro-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, #111 0%, #000 100%);
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; z-index: 1000; transition: 0.8s;
+        }
+        #intro-screen h1 { 
+            font-size: 3rem; color: #00ffcc; text-shadow: 0 0 30px rgba(0,255,204,0.6); 
+            text-transform: uppercase; letter-spacing: 4px; margin: 0;
+        }
+        .continue-btn {
+            padding: 18px 50px; font-size: 1.1rem; background: #00ffcc;
+            color: black; border: none; border-radius: 4px; cursor: pointer;
+            font-weight: bold; margin-top: 30px; letter-spacing: 2px;
+            box-shadow: 0 10px 20px rgba(0,255,204,0.2);
+        }
+
+        /* Main App */
+        #app-content { display: none; width: 100%; max-width: 1200px; text-align: center; padding: 20px; }
+        
+        .main-stage {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;
+        }
+
+        .video-box { 
+            position: relative; border: 2px solid #333; border-radius: 10px; 
+            background: #000; overflow: hidden;
+        }
+
+        /* Zoom Sensor UI */
+        .zoom-container {
+            background: rgba(20, 20, 20, 0.8);
+            padding: 15px; border-radius: 8px; margin-top: 10px;
+            border: 1px solid #333; display: flex; align-items: center; gap: 15px;
+        }
+        #zoomSlider {
+            flex-grow: 1; accent-color: #00ffcc; cursor: pointer;
+        }
+        .zoom-label { font-size: 12px; color: #00ffcc; font-weight: bold; min-width: 80px; }
+
+        /* Stats Panel */
+        .stats-grid { display: grid; grid-template-columns: 1fr; gap: 10px; min-width: 250px; }
+        .stat-card {
+            background: #111; padding: 15px; border-radius: 8px;
+            border-left: 4px solid #00ffcc; text-align: left;
+        }
+        .stat-label { font-size: 12px; color: #888; text-transform: uppercase; }
+        .stat-val { font-size: 24px; font-weight: bold; color: #fff; display: block; }
+        .stat-life { font-size: 11px; color: #00ffcc; opacity: 0.8; }
+
+        /* Floating Credit */
+        .floating-credit {
+            position: fixed; bottom: 25px; left: 25px;
+            color: #00ffcc; font-weight: bold; font-size: 14px;
+            animation: floatAnim 4s ease-in-out infinite;
+            text-shadow: 0 0 10px rgba(0,255,204,0.5); z-index: 999;
+        }
+        @keyframes floatAnim { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(5, -10px); } }
+
+        #ai-status { color: #00ffcc; font-size: 14px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="intro-screen">
+        <h1>Sayan's Vehicle Detector</h1>
+        <p style="color: #666;">A.I Powered Traffic Analytics</p>
+        <button class="continue-btn" onclick="activateApp()">CLICK TO CONTINUE</button>
+    </div>
+
+    <div id="app-content">
+        <div id="ai-status">Initializing System...</div>
+        
+        <div class="main-stage">
+            <div class="video-container">
+                <div class="video-box">
+                    <video id="webcam" width="720" height="540" autoplay muted playsinline></video>
+                    <canvas id="canvas" width="720" height="540" style="position: absolute; left: 0; top: 0;"></canvas>
+                </div>
+                
+                <!-- Zoom Sensor Control -->
+                <div class="zoom-container" id="zoomUI" style="display:none;">
+                    <span class="zoom-label">ZOOM SENSOR</span>
+                    <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1">
+                    <span id="zoomValue" style="color:white; width: 30px;">1x</span>
+                </div>
+                <div id="zoomNotSupported" style="font-size: 10px; color: #555; margin-top: 5px;">
+                    Digital Zoom not supported by this camera hardware.
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card"><span class="stat-label">Cars</span><span id="carCount" class="stat-val">0</span><span class="stat-life">Total: <span id="lt-car">0</span></span></div>
+                <div class="stat-card"><span class="stat-label">Trucks</span><span id="truckCount" class="stat-val">0</span><span class="stat-life">Total: <span id="lt-truck">0</span></span></div>
+                <div class="stat-card"><span class="stat-label">Bikes</span><span id="motorcycleCount" class="stat-val">0</span><span class="stat-life">Total: <span id="lt-motorcycle">0</span></span></div>
+                <div class="stat-card"><span class="stat-label">Humans</span><span id="personCount" class="stat-val">0</span><span class="stat-life">Total: <span id="lt-person">0</span></span></div>
+                <div style="cursor:pointer; color:#555; font-size:12px; text-decoration:underline;" onclick="clearData()">Clear All Data</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="floating-credit">[created by SAYAN DAS (A.I Developer)]</div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValueDisp = document.getElementById('zoomValue');
+        
+        let model, videoTrack;
+        const LINE_Y = 350;
+        let sessionCounts = { car: 0, truck: 0, motorcycle: 0, person: 0 };
+        let lifetimeCounts = JSON.parse(localStorage.getItem('sayan_zoom_ai')) || { car: 0, truck: 0, motorcycle: 0, person: 0 };
+
+        let tracker = new Map();
+        let nextId = 0;
+
+        async function activateApp() {
+            document.getElementById('intro-screen').style.display = 'none';
+            document.getElementById('app-content').style.display = 'block';
+            updateUI();
+            
+            model = await cocoSsd.load();
+            document.getElementById('ai-status').innerText = "AI Loaded. Starting Camera...";
+            
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 1280, height: 720, facingMode: "environment" } 
+            });
+            
+            video.srcObject = stream;
+            videoTrack = stream.getVideoTracks()[0];
+
+            // Check if hardware Zoom is supported
+            const capabilities = videoTrack.getCapabilities();
+            if (capabilities.zoom) {
+                document.getElementById('zoomUI').style.display = 'flex';
+                document.getElementById('zoomNotSupported').style.display = 'none';
+                zoomSlider.min = capabilities.zoom.min;
+                zoomSlider.max = capabilities.zoom.max;
+                zoomSlider.step = capabilities.zoom.step;
+                
+                zoomSlider.oninput = () => {
+                    const zoomVal = zoomSlider.value;
+                    zoomValueDisp.innerText = zoomVal + 'x';
+                    videoTrack.applyConstraints({ advanced: [{ zoom: zoomVal }] });
+                };
+            }
+
+            video.onloadedmetadata = () => detect();
+        }
+
+        async function detect() {
+            const predictions = await model.detect(video, 20, 0.35);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Line
+            ctx.strokeStyle = '#333';
+            ctx.setLineDash([10, 5]);
+            ctx.beginPath(); ctx.moveTo(0, LINE_Y); ctx.lineTo(canvas.width, LINE_Y); ctx.stroke();
+            ctx.setLineDash([]);
+
+            let currentIds = new Set();
+
+            predictions.forEach(p => {
+                if (!sessionCounts.hasOwnProperty(p.class)) return;
+
+                const [x, y, w, h] = p.bbox;
+                const cx = x + w / 2;
+                const cy = y + h / 2;
+
+                let matchedId = null;
+                tracker.forEach((val, id) => {
+                    let d = Math.sqrt(Math.pow(cx - val.x, 2) + Math.pow(cy - val.y, 2));
+                    if (d < 90 && val.class === p.class) matchedId = id;
+                });
+
+                if (matchedId === null) {
+                    matchedId = nextId++;
+                    tracker.set(matchedId, { x: cx, y: cy, class: p.class, counted: false, grace: 0 });
+                } else {
+                    let obj = tracker.get(matchedId);
+                    if (!obj.counted && ((obj.y < LINE_Y && cy >= LINE_Y) || (obj.y > LINE_Y && cy <= LINE_Y))) {
+                        sessionCounts[p.class]++;
+                        lifetimeCounts[p.class]++;
+                        obj.counted = true;
+                        localStorage.setItem('sayan_zoom_ai', JSON.stringify(lifetimeCounts));
+                        updateUI();
+                    }
+                    obj.x = cx; obj.y = cy; obj.grace = 0;
+                }
+                currentIds.add(matchedId);
+
+                ctx.strokeStyle = '#00ffcc';
+                ctx.strokeRect(x, y, w, h);
+                ctx.fillStyle = '#00ffcc';
+                ctx.fillText(p.class, x, y - 5);
+            });
+
+            tracker.forEach((val, id) => {
+                if (!currentIds.has(id)) {
+                    val.grace++;
+                    if (val.grace > 20) tracker.delete(id);
+                }
+            });
+
+            requestAnimationFrame(detect);
+        }
+
+        function updateUI() {
+            for (let k in sessionCounts) {
+                document.getElementById(k + 'Count').innerText = sessionCounts[k];
+                document.getElementById('lt-' + k).innerText = lifetimeCounts[k];
+            }
+        }
+
+        function clearData() {
+            if(confirm("Clear memory?")) {
+                lifetimeCounts = { car: 0, truck: 0, motorcycle: 0, person: 0 };
+                localStorage.setItem('sayan_zoom_ai', JSON.stringify(lifetimeCounts));
+                updateUI();
+            }
+        }
+    </script>
+</body>
+</html>

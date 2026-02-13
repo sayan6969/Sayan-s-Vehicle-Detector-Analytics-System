@@ -1,0 +1,43 @@
+This project, **Sayan's Vehicle Detector**, is a specialized AI-powered web application designed for real-time traffic monitoring and analytics. It transforms a standard smartphone or laptop camera into an intelligent edge-computing device.
+
+Here are the technical and functional details of the project:
+
+### 1. Project Overview
+*   **Project Name:** Sayan's Vehicle Detector & Analytics System
+*   **Developer:** Sayan Das (A.I Developer)
+*   **Purpose:** To automate the counting of various categories (Cars, Trucks, Bikes, Cycles, Humans) as they pass through a specific roadside point.
+*   **Deployment:** Optimized for GitHub Pages (HTTPS environment).
+
+### 2. Technology Stack (The "Under the Hood" part)
+*   **AI Engine:** **TensorFlow.js** — This is Google’s machine learning library that allows AI to run directly in the web browser. No external server is needed; all processing happens on your local device.
+*   **AI Model:** **COCO-SSD (Single Shot MultiBox Detector)** — A pre-trained deep learning model capable of identifying 80 different types of objects with high speed and precision.
+*   **Language:** HTML5, CSS3, and Vanilla JavaScript (ES6+).
+*   **Data Persistence:** **Web Storage API (LocalStorage)** — This ensures that the count data is saved in the browser's memory even if the page is refreshed or the browser is closed.
+*   **Hardware Integration:** **MediaDevices API** — Used to control the camera and implement the **Digital Zoom Sensor**.
+
+### 3. Key Intelligence Features
+*   **Centroid Tracking:** The system doesn't just "look" at objects; it assigns a unique ID to each detected object and calculates its center point (centroid). This prevents a single stationary car from being counted multiple times.
+*   **Virtual Trigger Line:** A mathematical boundary is set in the code. A "Count" is only registered when an object’s centroid transitions from one side of the line to the other.
+*   **Bidirectional Logic:** The algorithm is smart enough to count vehicles moving in both directions (approaching and moving away).
+*   **Confidence Filtering:** To avoid "ghost" detections, the system ignores any object with a confidence score lower than 35%, ensuring high accuracy.
+*   **Grace Period Tracking:** If a vehicle is momentarily hidden behind a tree or another car, the AI "remembers" it for 20 frames before deleting it, allowing for continuous tracking in busy traffic.
+
+### 4. User Experience (UX) Elements
+*   **Splash Screen:** A professional entry point that prepares the AI model before the camera starts, ensuring a smooth user experience.
+*   **Real-time Dashboard:** A clean, dark-themed UI that displays "Session Counts" (current live session) and "Lifetime Counts" (total history).
+*   **Zoom Sensor:** A slider that allows the user to manually adjust the camera’s focal length to better capture distant objects on wide roads.
+*   **Branding:** A floating, animated signature `[created by SAYAN DAS (A.I Developer)]` that moves dynamically to prevent screen burn-in and maintain professional identity.
+
+### 5. Potential Use Cases
+*   **Smart City Planning:** Analyzing how many vehicles use a specific road during peak hours.
+*   **Retail Analytics:** Counting how many people pass by a shopfront (footfall).
+*   **Private Security:** Monitoring a private driveway to see how many cars entered or exited during the day.
+*   **Traffic Flow Research:** Calculating the ratio of heavy vehicles (trucks) to light vehicles (cars) in a specific area.
+
+### 6. Limitations & Hardware Requirements
+*   **Hardware Dependent:** Since the AI runs in the browser, the "Frames Per Second" (FPS) depends on the speed of the device's CPU/GPU. High-end smartphones will perform better than older laptops.
+*   **Lighting:** Like all visual AI systems, performance is best in well-lit, daylight conditions.
+*   **Camera Angle:** Accuracy is highest when the camera is mounted at a 45-degree angle looking down at the road, rather than being placed flat on the ground.
+
+---
+**Summary:** This project is a perfect example of **Edge AI**, where complex machine learning tasks are performed locally on a user's device, ensuring privacy (the video is never sent to a server) and low latency.
